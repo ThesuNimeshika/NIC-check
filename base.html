@@ -13,8 +13,8 @@
         <div class="form-container">
             <div class="input-group">
                 <label for="nicInput">Enter NIC Number:</label>
-                <input type="text" id="nicInput" placeholder="Enter NIC manually (e.g., 901234567V or 199012345678)" maxlength="12">
-                <small class="format-hint">Format: Old (9 digits + V) or New (12 digits) - Enter manually</small>
+                <input type="text" id="nicInput" placeholder="Enter NIC manually (e.g., 901234567V or 901234567X or 199012345678)" maxlength="12">
+                <small class="format-hint">Format: Old (9 digits + V/X) or New (12 digits) - Enter manually</small>
             </div>
             
             <button id="checkBtn" onclick="validateNIC()">Check NIC</button>
@@ -100,17 +100,17 @@
         
         function validateNICFormat(nic) {
             // Remove any spaces or special characters
-            const cleanNIC = nic.replace(/[^0-9V]/gi, '');
+            const cleanNIC = nic.replace(/[^0-9VX]/gi, '');
             
-            // Check if it's old format (9 digits + V)
-            if (cleanNIC.length === 10 && cleanNIC.charAt(9).toUpperCase() === 'V') {
+            // Check if it's old format (9 digits + V or X)
+            if (cleanNIC.length === 10 && (cleanNIC.charAt(9).toUpperCase() === 'V' || cleanNIC.charAt(9).toUpperCase() === 'X')) {
                 const digits = cleanNIC.substring(0, 9);
                 if (/^\d{9}$/.test(digits)) {
                     return { isValid: true, type: 'old' };
                 } else {
                     return { 
                         isValid: false, 
-                        message: 'Invalid old NIC format. Must be 9 digits followed by V (e.g., 901234567V)' 
+                        message: 'Invalid old NIC format. Must be 9 digits followed by V or X (e.g., 901234567V or 901234567X)' 
                     };
                 }
             }
@@ -187,9 +187,9 @@
         }
         
         function processNIC(nic) {
-            const cleanNIC = nic.replace(/[^0-9V]/gi, '');
+            const cleanNIC = nic.replace(/[^0-9VX]/gi, '');
             
-            if (cleanNIC.length === 10 && cleanNIC.charAt(9).toUpperCase() === 'V') {
+            if (cleanNIC.length === 10 && (cleanNIC.charAt(9).toUpperCase() === 'V' || cleanNIC.charAt(9).toUpperCase() === 'X')) {
                 // Old NIC format
                 return processOldNIC(cleanNIC);
             } else if (cleanNIC.length === 12) {
@@ -242,31 +242,31 @@
             const year = parseInt(nic.substring(0, 4));
             const days = parseInt(nic.substring(4, 7));
             const serial = nic.substring(7, 12);
-            
+
             // Determine gender and actual days
             let actualDays = days;
             let gender = 'Male';
-            
+
             if (days > 500) {
                 gender = 'Female';
                 actualDays = days; // Keep original days for DOB calculation
             }
-            
+
             // Calculate date of birth
             const dobResult = calculateDOB(year, actualDays, gender);
-            
-            // Convert to old format
+
+            // Convert to old format (show both V and X endings)
             const shortYear = year.toString().substring(2);
-            const oldNIC = shortYear + 
-                          actualDays.toString().padStart(3, '0') + 
-                          serial.substring(0, 4).padStart(4, '0') + 'V';
-            
+            const oldNICBase = shortYear + days.toString().padStart(3, '0') + serial.substring(1, 5);
+            const oldNIC_V = oldNICBase + 'V';
+            const oldNIC_X = oldNICBase + 'X';
+
             return {
                 type: 'New NIC',
                 dob: dobResult.dob,
                 gender: gender,
                 yearType: dobResult.isLeapYear ? 'Leap Year' : 'Standard Year',
-                convertedNIC: oldNIC,
+                convertedNIC: `${oldNIC_V} / ${oldNIC_X}`,
                 originalNIC: nic,
                 year: year,
                 days: actualDays
@@ -344,8 +344,8 @@
         document.getElementById('nicInput').addEventListener('input', function(e) {
             let value = e.target.value;
             
-            // Allow only numbers and V
-            value = value.replace(/[^0-9V]/gi, '');
+            // Allow only numbers, V, and X
+            value = value.replace(/[^0-9VX]/gi, '');
             
             e.target.value = value;
         });
