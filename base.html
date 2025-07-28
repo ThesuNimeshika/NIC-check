@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIC Validation System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>NIC Validation System</h1>
+        
+        <div class="form-container">
+            <div class="input-group">
+                <label for="nicInput">Enter NIC Number:</label>
+                <input type="text" id="nicInput" placeholder="Enter NIC manually (e.g., 901234567V or 199012345678)" maxlength="12">
+                <small class="format-hint">Format: Old (9 digits + V) or New (12 digits) - Enter manually</small>
+            </div>
+            
+            <button id="checkBtn" onclick="validateNIC()">Check NIC</button>
+        </div>
+
+        <div id="resultContainer" class="result-container" style="display: none;">
+            <h2>Validation Results</h2>
+            
+            <div class="result-grid">
+                <div class="result-item">
+                    <label>NIC Type:</label>
+                    <span id="nicType" class="result-value"></span>
+                </div>
+                
+                <div class="result-item">
+                    <label>Date of Birth:</label>
+                    <span id="dob" class="result-value"></span>
+                </div>
+                
+                <div class="result-item">
+                    <label>Gender:</label>
+                    <span id="gender" class="result-value"></span>
+                </div>
+                
+                <div class="result-item">
+                    <label>Year Type:</label>
+                    <span id="yearType" class="result-value"></span>
+                </div>
+                
+                <div class="result-item">
+                    <label>Converted NIC:</label>
+                    <span id="convertedNIC" class="result-value"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorContainer" class="error-container" style="display: none;">
+            <div class="error-message">
+                <span id="errorMessage"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // NIC validation and conversion functions
+        function validateNIC() {
+            const nicInput = document.getElementById('nicInput').value.trim();
+            const resultContainer = document.getElementById('resultContainer');
+            const errorContainer = document.getElementById('errorContainer');
+            
+            // Hide previous results
+            resultContainer.style.display = 'none';
+            errorContainer.style.display = 'none';
+            
+            if (!nicInput) {
+                showError('Please enter a NIC number');
+                return;
+            }
+            
+            // Validate NIC format
+            const nicValidation = validateNICFormat(nicInput);
+            if (!nicValidation.isValid) {
+                showError(nicValidation.message);
+                return;
+            }
+            
+            // Process NIC and get results
+            const nicInfo = processNIC(nicInput);
+            
+            // Validate DOB
+            const dobValidation = validateDOB(nicInfo.year, nicInfo.days, nicInfo.gender);
+            if (!dobValidation.isValid) {
+                showError(dobValidation.message);
+                return;
+            }
+            
+            // Display results
+            displayResults(nicInfo);
+            
+            // Check for existing user (simulate backend check)
+            checkExistingUser(nicInput);
+        }
+        
+        function validateNICFormat(nic) {
+            // Remove any spaces or special characters
+            const cleanNIC = nic.replace(/[^0-9V]/gi, '');
+            
+            // Check if it's old format (9 digits + V)
+            if (cleanNIC.length === 10 && cleanNIC.charAt(9).toUpperCase() === 'V') {
+                const digits = cleanNIC.substring(0, 9);
+                if (/^\d{9}$/.test(digits)) {
+                    return { isValid: true, type: 'old' };
+                } else {
+                    return { 
+                        isValid: false, 
+                        message: 'Invalid old NIC format. Must be 9 digits followed by V (e.g., 901234567V)' 
+                    };
+                }
+            }
+            
+            // Check if it's new format (12 digits)
+            if (cleanNIC.length === 12 && /^\d{12}$/.test(cleanNIC)) {
+                return { isValid: true, type: 'new' };
+            }
+            
+            // Check if it's old format but missing V
+            if (cleanNIC.length === 9 && /^\d{9}$/.test(cleanNIC)) {
+                return { 
+                    isValid: false, 
+                    message: 'Old NIC format requires V at the end (e.g., 901234567V)' 
+                };
+            }
+            
+            // Check if it's new format but wrong length
+            if (cleanNIC.length > 0 && cleanNIC.length !== 12) {
+                return { 
+                    isValid: false, 
+                    message: 'New NIC format must be exactly 12 digits (e.g., 199012345678)' 
+                };
+            }
+            
+            return { 
+                isValid: false, 
+                message: 'Invalid NIC format. Use old format (9 digits + V) or new format (12 digits)' 
+            };
+        }
+        
+        function validateDOB(year, days, gender) {
+            // Check if it's a leap year
+            const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            
+            // For females, subtract based on year type
+            let adjustedDays = days;
+            if (gender === 'Female') {
+                if (isLeapYear) {
+                    adjustedDays = days - 500; // Leap year: subtract 500
+                } else {
+                    adjustedDays = days - 501; // Standard year: subtract 501
+                }
+            }
+            
+            // Validate day number
+            const maxDays = isLeapYear ? 366 : 365;
+            if (adjustedDays < 1 || adjustedDays > maxDays) {
+                return { 
+                    isValid: false, 
+                    message: `Invalid day of year. Must be between 1 and ${maxDays} for ${isLeapYear ? 'leap' : 'standard'} year.` 
+                };
+            }
+            
+            // Calculate DOB
+            const startOfYear = new Date(year, 0, 1);
+            const dobDate = new Date(startOfYear.getTime() + (adjustedDays - 1) * 24 * 60 * 60 * 1000);
+            
+            // Check if DOB is in the future
+            const currentDate = new Date();
+            if (dobDate > currentDate) {
+                return { 
+                    isValid: false, 
+                    message: 'Invalid NIC: Birth date cannot be in the future.' 
+                };
+            }
+            
+            return { isValid: true, dobDate: dobDate, isLeapYear: isLeapYear };
+        }
+        
+        function processNIC(nic) {
+            const cleanNIC = nic.replace(/[^0-9V]/gi, '');
+            
+            if (cleanNIC.length === 10 && cleanNIC.charAt(9).toUpperCase() === 'V') {
+                // Old NIC format
+                return processOldNIC(cleanNIC);
+            } else if (cleanNIC.length === 12) {
+                // New NIC format
+                return processNewNIC(cleanNIC);
+            } else {
+                throw new Error('Invalid NIC format');
+            }
+        }
+        
+        function processOldNIC(nic) {
+            const year = parseInt(nic.substring(0, 2));
+            const days = parseInt(nic.substring(2, 5));
+            const serial = nic.substring(5, 9);
+            const checkDigit = nic.charAt(9);
+            
+            // Determine full year (1900s or 2000s)
+            const fullYear = year < 50 ? 1900 + year : 1900 + year;
+            
+            // Determine gender and actual days
+            let actualDays = days;
+            let gender = 'Male';
+            
+            if (days > 500) {
+                gender = 'Female';
+                actualDays = days; // Keep original days for DOB calculation
+            }
+            
+            // Calculate date of birth
+            const dobResult = calculateDOB(fullYear, actualDays, gender);
+            
+            // Convert to new format
+            const newNIC = fullYear.toString() + 
+                          actualDays.toString().padStart(3, '0') + 
+                          serial.padStart(5, '0');
+            
+            return {
+                type: 'Old NIC',
+                dob: dobResult.dob,
+                gender: gender,
+                yearType: dobResult.isLeapYear ? 'Leap Year' : 'Standard Year',
+                convertedNIC: newNIC,
+                originalNIC: nic,
+                year: fullYear,
+                days: actualDays
+            };
+        }
+        
+        function processNewNIC(nic) {
+            const year = parseInt(nic.substring(0, 4));
+            const days = parseInt(nic.substring(4, 7));
+            const serial = nic.substring(7, 12);
+            
+            // Determine gender and actual days
+            let actualDays = days;
+            let gender = 'Male';
+            
+            if (days > 500) {
+                gender = 'Female';
+                actualDays = days; // Keep original days for DOB calculation
+            }
+            
+            // Calculate date of birth
+            const dobResult = calculateDOB(year, actualDays, gender);
+            
+            // Convert to old format
+            const shortYear = year.toString().substring(2);
+            const oldNIC = shortYear + 
+                          actualDays.toString().padStart(3, '0') + 
+                          serial.substring(0, 4).padStart(4, '0') + 'V';
+            
+            return {
+                type: 'New NIC',
+                dob: dobResult.dob,
+                gender: gender,
+                yearType: dobResult.isLeapYear ? 'Leap Year' : 'Standard Year',
+                convertedNIC: oldNIC,
+                originalNIC: nic,
+                year: year,
+                days: actualDays
+            };
+        }
+        
+        function calculateDOB(year, days, gender) {
+            // Check if it's a leap year
+            const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            
+            // For females, subtract based on year type
+            let adjustedDays = days;
+            if (gender === 'Female') {
+                if (isLeapYear) {
+                    adjustedDays = days - 500; // Leap year: subtract 500
+                } else {
+                    adjustedDays = days - 501; // Standard year: subtract 501
+                }
+            }
+            
+            const startOfYear = new Date(year, 0, 1);
+            const dobDate = new Date(startOfYear.getTime() + (adjustedDays - 1) * 24 * 60 * 60 * 1000);
+            
+            return {
+                dob: dobDate.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }),
+                isLeapYear: isLeapYear
+            };
+        }
+        
+        function displayResults(nicInfo) {
+            document.getElementById('nicType').textContent = nicInfo.type;
+            document.getElementById('dob').textContent = nicInfo.dob;
+            document.getElementById('gender').textContent = nicInfo.gender;
+            document.getElementById('yearType').textContent = nicInfo.yearType;
+            document.getElementById('convertedNIC').textContent = nicInfo.convertedNIC;
+            
+            document.getElementById('resultContainer').style.display = 'block';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorContainer').style.display = 'block';
+        }
+        
+        function checkExistingUser(nic) {
+            // Simulate backend check - in real implementation, this would be an API call
+            const existingUsers = [
+                '901234567V',
+                '199012345678',
+                '881234567V',
+                '198812345678',
+                '951234567V',
+                '199512345678',
+                '871234567V',
+                '198712345678'
+            ];
+            
+            if (existingUsers.includes(nic)) {
+                setTimeout(() => {
+                    alert('⚠️ Warning: This NIC belongs to an existing user in the system!');
+                }, 500);
+            }
+        }
+        
+        // Input validation on keyup
+        document.getElementById('nicInput').addEventListener('input', function(e) {
+            let value = e.target.value;
+            
+            // Allow only numbers and V
+            value = value.replace(/[^0-9V]/gi, '');
+            
+            e.target.value = value;
+        });
+        
+        // Enter key to trigger validation
+        document.getElementById('nicInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validateNIC();
+            }
+        });
+    </script>
+</body>
+</html>
